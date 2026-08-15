@@ -1,7 +1,7 @@
 ---
-title: "Podman Quadlet Unit File Templates Reference"
+title: "SongketMail Podman Quadlet Unit File Templates Reference"
 sidebarTitle: "Quadlet Templates"
-description: "Reference for all SongketMail Quadlet .container, .pod, and .network template files that define the containerized service fabric."
+description: "Reference for all SongketMail Quadlet .container, .pod, and .network template files that Ansible deploys to define the containerized service fabric."
 ---
 
 Quadlet files are Jinja2 templates that Ansible renders and deploys to `~/.config/containers/systemd/` on the target host. Podman 5's built-in `podman-systemd-generator` parses these files at login and produces standard systemd unit services automatically — no Docker Compose, no wrapper scripts. Each file defines a container's image, volumes, environment variables, network binding, and user namespace in a declarative `[Container]` block that maps directly to `podman run` arguments.
@@ -14,11 +14,11 @@ The network unit creates the Podman bridge network that all service containers s
 
 ```ini
 [Network]
-NetworkName=songketmail-net
-Subnet=10.89.0.0/16
+NetworkName={{ podman_network_name }}
+Subnet={{ podman_network_subnet }}
 Internal=false
 IPAM=host-local
-Label=fabric_cluster=songketmail
+Label=fabric_cluster={{ cluster_prefix }}
 ```
 
 **Key fields:**
@@ -36,18 +36,18 @@ The pod unit groups all service containers into a single Podman pod, enforcing a
 
 ```ini
 [Pod]
-PodName=songketmail_pod
-Network=songketmail-net
+PodName={{ cluster_prefix }}_pod
+Network={{ podman_network_name }}
 # Namespace mapping with keep-id is mandatory at the Pod level to ensure
 # storage sovereignty and direct container-to-host UID/GID mapping (2001:2001)
-UserNS=keep-id:uid=2001,gid=2001
-Label=fabric_cluster=songketmail
+UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+Label=fabric_cluster={{ cluster_prefix }}
 ```
 
 **Key fields:**
 
 - `PodName` — rendered as `{{ cluster_prefix }}_pod`; changing `cluster_prefix` in `group_vars/all.yml` renames the pod automatically
-- `UserNS=keep-id:uid=2001,gid=2001` — maps the rootless container UID/GID to the host service account (UID 2001, GID 2001), ensuring that volume files on the host are readable and writable without `sudo`; driven by `songketmail_uid` and `songketmail_gid`
+- `UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}` — maps the rootless container UID/GID to the host service account, ensuring that volume files on the host are readable and writable without `sudo`; driven by `songketmail_uid` and `songketmail_gid`
 - `Network` — binds the pod to the cluster bridge network so containers resolve each other by name
 
 <Note>
@@ -61,7 +61,7 @@ Label=fabric_cluster=songketmail
 
 ## Container Templates
 
-The following tabs show the rendered `[Container]` block for each service, followed by annotations of the key fields. All templates share a common `[Unit]` section with `After=network-online.target` and a `[Install]` section with `WantedBy=default.target`.
+The following tabs show the `[Container]` block for each service as it appears in the Jinja2 template, followed by annotations of the key fields. All templates share a common `[Unit]` section with `After=network-online.target` and a `[Install]` section with `WantedBy=default.target`.
 
 <Tabs>
   <Tab title="Proxy">
@@ -69,11 +69,11 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-proxy
-    Image=docker.io/bunkerity/bunkerweb-all-in-one:1.6.13
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/bunkerweb/data:/data:Z
+    ContainerName={{ cluster_prefix }}-proxy
+    Image=docker.io/bunkerity/bunkerweb-all-in-one:{{ bunkerweb_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/bunkerweb/data:/data:Z
     PublishPort=80:8080
     PublishPort=443:8443
     PublishPort=443:8443/udp
@@ -85,36 +85,36 @@ The following tabs show the rendered `[Container]` block for each service, follo
     Environment=SERVER_NAME=mail.songketmail.internal smtp.songketmail.internal imap.songketmail.internal
     # Webmail (HTTP/HTTPS)
     Environment=mail.songketmail.internal_USE_REVERSE_PROXY=yes
-    Environment=mail.songketmail.internal_REVERSE_PROXY_HOST=http://songketmail-web:8080
+    Environment=mail.songketmail.internal_REVERSE_PROXY_HOST=http://{{ cluster_prefix }}-web:8080
     Environment=mail.songketmail.internal_REVERSE_PROXY_URL=/
     # SMTP Stream (Port 25)
     Environment=smtp.songketmail.internal_SERVER_TYPE=stream
     Environment=smtp.songketmail.internal_USE_REVERSE_PROXY=yes
-    Environment=smtp.songketmail.internal_REVERSE_PROXY_HOST=songketmail-postfix:25
+    Environment=smtp.songketmail.internal_REVERSE_PROXY_HOST={{ cluster_prefix }}-postfix:25
     Environment=smtp.songketmail.internal_LISTEN_STREAM_PORT=25
     # Enforce PROXY protocol on SMTP connections to backend Postfix to preserve client IP
     Environment=smtp.songketmail.internal_CUSTOM_CONF_SERVER_STREAM_proxy-protocol=proxy_protocol on;
     # SMTP Submission Stream (Port 587)
     Environment=smtp.songketmail.internal_LISTEN_STREAM_PORT_1=587
-    Environment=smtp.songketmail.internal_REVERSE_PROXY_HOST_1=songketmail-postfix:587
+    Environment=smtp.songketmail.internal_REVERSE_PROXY_HOST_1={{ cluster_prefix }}-postfix:587
     Environment=smtp.songketmail.internal_CUSTOM_CONF_SERVER_STREAM_proxy-protocol_1=proxy_protocol on;
     # IMAP Stream (Port 143/993)
     Environment=imap.songketmail.internal_SERVER_TYPE=stream
     Environment=imap.songketmail.internal_USE_REVERSE_PROXY=yes
-    Environment=imap.songketmail.internal_REVERSE_PROXY_HOST=songketmail-dovecot:993
+    Environment=imap.songketmail.internal_REVERSE_PROXY_HOST={{ cluster_prefix }}-dovecot:993
     Environment=imap.songketmail.internal_LISTEN_STREAM_PORT_SSL=993
     Environment=imap.songketmail.internal_CUSTOM_CONF_SERVER_STREAM_proxy-protocol=proxy_protocol on;
     # SSL/TLS Settings
     Environment=GENERATE_SELF_SIGNED_SSL=yes
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=proxy
     ```
 
     **Key field annotations:**
 
-    - `Image` — the BunkerWeb all-in-one image combining Nginx, WAF rules, and a built-in ACME client
+    - `Image` — the BunkerWeb all-in-one image combining Nginx, WAF rules, and a built-in ACME client; tag driven by `bunkerweb_image_tag`
     - `PublishPort` — five host ports bound: 80 (HTTP redirect), 443 TCP+UDP (HTTPS/HTTP3), 25 (SMTP), 587 (Submission), 993 (IMAPS)
-    - `Volume` — a single `/data` volume holds BunkerWeb's certificate cache, WAF databases, and configuration state
+    - `Volume` — a single `/data` volume holds BunkerWeb's certificate cache, WAF databases, and configuration state; path driven by `storage_base_path`
     - `MULTISITE=yes` — enables per-`SERVER_NAME` configuration blocks for separate virtual hosting of webmail, SMTP, and IMAP
     - `GENERATE_SELF_SIGNED_SSL=yes` — auto-generates a self-signed certificate for initial testing; replace with your ACME or provided certificate configuration for production
     - `proxy_protocol on;` — prepends a PROXY header to upstream TCP connections so Postfix and Dovecot see the real client IP rather than the proxy's internal address
@@ -125,25 +125,25 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-postfix
-    Image=docker.io/library/postfix:3.9.0
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/postfix/config:/etc/postfix:Z
-    Volume=/var/srv/songketmail/postfix/spool:/var/spool/postfix:Z
+    ContainerName={{ cluster_prefix }}-postfix
+    Image=docker.io/library/postfix:{{ postfix_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/postfix/config:/etc/postfix:Z
+    Volume={{ storage_base_path }}/postfix/spool:/var/spool/postfix:Z
     Environment=TZ=UTC
     Exec=/usr/sbin/postfix start-fg
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=postfix
     ```
 
     **Key field annotations:**
 
-    - `Image` — the official Postfix image; no ports are published to the host because BunkerWeb proxies all inbound SMTP traffic internally
-    - `Volume` — two mounts: `/etc/postfix` for `main.cf`, `master.cf`, and virtual maps; `/var/spool/postfix` for the mail queue
+    - `Image` — the official Postfix image; tag driven by `postfix_image_tag`; no ports are published to the host because BunkerWeb proxies all inbound SMTP traffic internally
+    - `Volume` — two mounts: `/etc/postfix` for `main.cf`, `master.cf`, and virtual maps; `/var/spool/postfix` for the mail queue; paths driven by `storage_base_path`
     - `Exec` — starts Postfix in foreground mode (`start-fg`) so systemd can monitor its lifecycle directly
-    - `Network` — resolves `songketmail-dovecot` by container name for LMTP delivery on port 24
-    - No `PublishPort` directives — Postfix is only reachable from within `songketmail-net`; BunkerWeb handles public port exposure
+    - `Network` — resolves `{{ cluster_prefix }}-dovecot` by container name for LMTP delivery on port 24
+    - No `PublishPort` directives — Postfix is only reachable from within the cluster network; BunkerWeb handles public port exposure
   </Tab>
 
   <Tab title="Dovecot">
@@ -151,23 +151,23 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-dovecot
-    Image=docker.io/library/dovecot:2.3.21.1
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/dovecot/config:/etc/dovecot:Z
-    Volume=/var/srv/songketmail/dovecot/indexes:/var/vmail/indexes:Z
-    Volume=/var/srv/songketmail/dovecot/cache:/var/vmail/cache:Z
+    ContainerName={{ cluster_prefix }}-dovecot
+    Image=docker.io/library/dovecot:{{ dovecot_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/dovecot/config:/etc/dovecot:Z
+    Volume={{ storage_base_path }}/dovecot/indexes:/var/vmail/indexes:Z
+    Volume={{ storage_base_path }}/dovecot/cache:/var/vmail/cache:Z
     Environment=TZ=UTC
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=dovecot
     ```
 
     **Key field annotations:**
 
-    - `Image` — the official Dovecot image; no ports are published to the host
-    - `Volume` — three mounts: `/etc/dovecot` for configuration; `/var/vmail/indexes` for Dovecot's high-performance mail index files; `/var/vmail/cache` for cached metadata to reduce repeated S3 lookups
-    - Internal ports 24 (LMTP), 143 (IMAP), and 4190 (Sieve) are accessible only within `songketmail-net`
+    - `Image` — the official Dovecot image; tag driven by `dovecot_image_tag`; no ports are published to the host
+    - `Volume` — three mounts: `/etc/dovecot` for configuration; `/var/vmail/indexes` for Dovecot's high-performance mail index files; `/var/vmail/cache` for cached metadata to reduce repeated S3 lookups; paths driven by `storage_base_path`
+    - Internal ports 24 (LMTP), 143 (IMAP), and 4190 (Sieve) are accessible only within the cluster network
     - IMAPS (993) is exposed publicly via BunkerWeb's stream proxy with PROXY protocol enabled
   </Tab>
 
@@ -176,25 +176,25 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-db
+    ContainerName={{ cluster_prefix }}-db
     Image=docker.io/library/postgres:16-alpine
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/postgres/data:/var/lib/postgresql/data:Z
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/postgres/data:/var/lib/postgresql/data:Z
     Environment=TZ=UTC
     Environment=POSTGRES_USER=mail_admin
     Environment=POSTGRES_PASSWORD=super_secure_db_pass
     Environment=POSTGRES_DB=mailserver
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=db
     ```
 
     **Key field annotations:**
 
-    - `Image` — `postgres:16-alpine` for a minimal, security-reduced image footprint
-    - `Volume` — a single mount to `/var/lib/postgresql/data` persists all database files on the host under `postgres/data`
+    - `Image` — `postgres:16-alpine` for a minimal, security-reduced image footprint; the image tag is pinned directly in the template (no variable)
+    - `Volume` — a single mount to `/var/lib/postgresql/data` persists all database files on the host under `postgres/data`; path driven by `storage_base_path`
     - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — bootstrap credentials; replace the default password with a strong secret before deploying to any non-local environment
-    - Port 5432 is only reachable within `songketmail-net`; it is never published to the host
+    - Port 5432 is only reachable within the cluster network; it is never published to the host
   </Tab>
 
   <Tab title="S3">
@@ -202,28 +202,28 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-s3
-    Image=docker.io/rustfs/rustfs:1.0.0
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/rustfs/data:/data:Z
+    ContainerName={{ cluster_prefix }}-s3
+    Image=docker.io/rustfs/rustfs:{{ rustfs_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/rustfs/data:/data:Z
     Environment=TZ=UTC
     Environment=RUSTFS_ACCESS_KEY=rustfs_admin
     Environment=RUSTFS_SECRET_KEY=rustfs_secure_pass
     Environment=RUSTFS_VOLUMES=/data
     Environment=RUSTFS_ADDRESS=:9000
     Environment=RUSTFS_CONSOLE_ADDRESS=:9001
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=s3
     ```
 
     **Key field annotations:**
 
-    - `Image` — `rustfs/rustfs:1.0.0`; RustFS is a Rust-native, S3-compatible object store
-    - `Volume` — a single `/data` mount persists all stored objects on the host under `rustfs/data`
+    - `Image` — `rustfs/rustfs` image; tag driven by `rustfs_image_tag`; RustFS is a Rust-native, S3-compatible object store
+    - `Volume` — a single `/data` mount persists all stored objects on the host under `rustfs/data`; path driven by `storage_base_path`
     - `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` — S3 API credentials used by Dovecot; replace with strong secrets before production deployment
-    - `RUSTFS_ADDRESS=:9000` — binds the S3 API inside the container; accessible within `songketmail-net` only
-    - `RUSTFS_CONSOLE_ADDRESS=:9001` — binds the RustFS management web console; accessible within `songketmail-net` only
+    - `RUSTFS_ADDRESS=:9000` — binds the S3 API inside the container; accessible within the cluster network only
+    - `RUSTFS_CONSOLE_ADDRESS=:9001` — binds the RustFS management web console; accessible within the cluster network only
   </Tab>
 
   <Tab title="Webmail">
@@ -231,22 +231,22 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-web
-    Image=docker.io/roundcube/roundcubemail:1.6.8-apache
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/roundcube/config:/var/www/html/config:Z
-    Volume=/var/srv/songketmail/roundcube/db:/var/www/html/db:Z
+    ContainerName={{ cluster_prefix }}-web
+    Image=docker.io/roundcube/roundcubemail:{{ roundcube_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/roundcube/config:/var/www/html/config:Z
+    Volume={{ storage_base_path }}/roundcube/db:/var/www/html/db:Z
     Environment=TZ=UTC
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=web
     ```
 
     **Key field annotations:**
 
-    - `Image` — the official Roundcube image with Apache; the `-apache` variant handles its own HTTP serving on port 8080
-    - `Volume` — two mounts: `/var/www/html/config` for Roundcube's PHP configuration files; `/var/www/html/db` for the local SQLite session database
-    - BunkerWeb reverse-proxies `mail.songketmail.internal` to `http://songketmail-web:8080` over the internal network
+    - `Image` — the official Roundcube image with Apache; tag driven by `roundcube_image_tag`; the `-apache` variant handles its own HTTP serving on port 8080
+    - `Volume` — two mounts: `/var/www/html/config` for Roundcube's PHP configuration files; `/var/www/html/db` for the local SQLite session database; paths driven by `storage_base_path`
+    - BunkerWeb reverse-proxies `mail.songketmail.internal` to `http://{{ cluster_prefix }}-web:8080` over the internal network
     - No ports are published to the host directly
   </Tab>
 
@@ -255,23 +255,23 @@ The following tabs show the rendered `[Container]` block for each service, follo
 
     ```ini
     [Container]
-    ContainerName=songketmail-rspamd
-    Image=docker.io/rspamd/rspamd:3.9.1
-    Network=songketmail-net
-    UserNS=keep-id:uid=2001,gid=2001
-    Volume=/var/srv/songketmail/rspamd/config:/etc/rspamd/local.d:Z
-    Volume=/var/srv/songketmail/rspamd/data:/var/lib/rspamd:Z
+    ContainerName={{ cluster_prefix }}-rspamd
+    Image=docker.io/rspamd/rspamd:{{ rspamd_image_tag }}
+    Network={{ podman_network_name }}
+    UserNS=keep-id:uid={{ songketmail_uid }},gid={{ songketmail_gid }}
+    Volume={{ storage_base_path }}/rspamd/config:/etc/rspamd/local.d:Z
+    Volume={{ storage_base_path }}/rspamd/data:/var/lib/rspamd:Z
     Environment=TZ=UTC
-    Label=fabric_cluster=songketmail
+    Label=fabric_cluster={{ cluster_prefix }}
     Label=service_type=rspamd
     ```
 
     **Key field annotations:**
 
-    - `Image` — the official Rspamd image
-    - `Volume` — two mounts: `/etc/rspamd/local.d` for local override configuration files (rules, actions, modules); `/var/lib/rspamd` for learned Bayes data, fuzzy hashes, and DKIM keys
-    - Port 11334 (milter) is reachable within `songketmail-net` for Postfix's `smtpd_milters` setting
-    - Port 11333 (web dashboard) is reachable within `songketmail-net` only; proxy it through BunkerWeb if you need external access
+    - `Image` — the official Rspamd image; tag driven by `rspamd_image_tag`
+    - `Volume` — two mounts: `/etc/rspamd/local.d` for local override configuration files (rules, actions, modules); `/var/lib/rspamd` for learned Bayes data, fuzzy hashes, and DKIM keys; paths driven by `storage_base_path`
+    - Port 11334 (milter) is reachable within the cluster network for Postfix's `smtpd_milters` setting
+    - Port 11333 (web dashboard) is reachable within the cluster network only; proxy it through BunkerWeb if you need external access
   </Tab>
 </Tabs>
 

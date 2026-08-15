@@ -1,7 +1,7 @@
 ---
 title: "Verify Your SongketMail Deployment"
 sidebarTitle: "Verification"
-description: "Confirm all seven SongketMail services are running, that ports are bound correctly, and the Roundcube webmail interface is accessible."
+description: "Confirm all SongketMail services are running, that ports are bound correctly, and the Roundcube webmail interface is accessible after deployment."
 ---
 
 After the playbook completes, spend a few minutes verifying that every service started correctly, all expected ports are bound, and the Roundcube webmail interface loads over HTTPS. These checks catch the most common post-deployment issues — misconfigured storage ownership, a missing `subuid` entry, or a Quadlet file that failed to parse — before your users notice anything.
@@ -37,12 +37,10 @@ journalctl --user -u songketmail_postfix.service --since "5 minutes ago"
 ```
 
 <Note>
-  When `is_limited_environment` is set to `true` in `group_vars/all.yml`,
-  the playbook operates in **SANDBOX_VERIFIED** mode: service management tasks
-  are skipped and no containers are actually started. This mode is intended for
-  CI pipelines and static configuration validation only. If you see all tasks
-  skipped and no running units after deployment, check the value of
-  `is_limited_environment` in your `group_vars/all.yml`.
+  If you see all tasks skipped and no running units after deployment, check
+  the value of `is_limited_environment` in your `group_vars/all.yml`. When
+  this flag is set to `true`, privileged OS tasks and service management are
+  skipped. Set it to `false` and re-run the playbook for a full deployment.
 </Note>
 
 ## Section 2: Verify Port Bindings
@@ -50,7 +48,7 @@ journalctl --user -u songketmail_postfix.service --since "5 minutes ago"
 With the BunkerWeb proxy container running, the following ports should be bound on the host's network interfaces:
 
 | Port | Protocol | Service |
-|------|----------|---------|
+|------|----------|---------| 
 | 25 | SMTP | Postfix (MTA — inbound mail from the internet) |
 | 80 | HTTP | BunkerWeb (redirects to HTTPS) |
 | 443 | HTTPS | BunkerWeb (Roundcube webmail, reverse-proxied) |
@@ -65,7 +63,7 @@ ss -tlnp | grep -E ':25|:80|:443|:587|:993'
 
 Expected output (addresses may vary):
 
-```
+```text
 LISTEN 0  128  0.0.0.0:25   0.0.0.0:*
 LISTEN 0  128  0.0.0.0:80   0.0.0.0:*
 LISTEN 0  128  0.0.0.0:443  0.0.0.0:*
@@ -84,7 +82,7 @@ sysctl net.ipv4.ip_unprivileged_port_start
 
 Open your browser and navigate to your mail domain over HTTPS:
 
-```
+```text
 https://<your-domain>/
 ```
 
@@ -100,7 +98,7 @@ Roundcube listens internally on port 8080 and is reverse-proxied through BunkerW
   <Step title="Log in with an admin account">
     Use the administrator credentials configured in your Postfix and Dovecot
     virtual mailbox tables. On a fresh deployment, create your first mailbox
-    user in the PostgreSQL `songketmail` database before attempting to log in.
+    user before attempting to log in.
   </Step>
 
   <Step title="Send a test message">

@@ -30,8 +30,8 @@ Network=songketmail-net
 UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/bunkerweb/data:/data:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
 <Warning>
@@ -63,8 +63,8 @@ UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/postfix/config:/etc/postfix:Z
 Volume=/var/srv/songketmail/postfix/spool:/var/spool/postfix:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
 <Tip>
@@ -97,8 +97,8 @@ Volume=/var/srv/songketmail/dovecot/config:/etc/dovecot:Z
 Volume=/var/srv/songketmail/dovecot/indexes:/var/vmail/indexes:Z
 Volume=/var/srv/songketmail/dovecot/cache:/var/vmail/cache:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
   </Tab>
@@ -106,7 +106,7 @@ Restart=always
 
 ## songketmail-db — Virtual Account Database
 
-`songketmail-db` runs PostgreSQL and serves as the single source of truth for virtual domains, user accounts, and aliases across the fabric. Both Postfix and Dovecot query it for every routing and authentication decision. The schema uses three tables — `virtual_domains`, `users`, and `virtual_aliases` — with Argon2id password hashing for the `users` table. See the [Architecture Overview](/architecture-overview#postgresql-virtual-account-schema) for the full `CREATE TABLE` statements.
+`songketmail-db` runs PostgreSQL and serves as the single source of truth for virtual domains, user accounts, and aliases across the fabric. Both Postfix and Dovecot query it for every routing and authentication decision. Passwords are stored as Argon2id hashes — Dovecot's `auth-sql` driver verifies them natively.
 
 | Property | Value |
 |---|---|
@@ -125,8 +125,8 @@ Network=songketmail-net
 UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/postgres/data:/var/lib/postgresql/data:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
 <Note>
@@ -157,8 +157,8 @@ Network=songketmail-net
 UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/rustfs/data:/data:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
 <Tip>
@@ -190,8 +190,8 @@ UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/roundcube/config:/var/www/html/config:Z
 Volume=/var/srv/songketmail/roundcube/db:/var/www/html/db:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
   </Tab>
@@ -219,8 +219,8 @@ UserNS=keep-id:uid=2001,gid=2001
 Volume=/var/srv/songketmail/rspamd/config:/etc/rspamd/local.d:Z
 Volume=/var/srv/songketmail/rspamd/data:/var/lib/rspamd:Z
 
-[Service]
-Restart=always
+[Install]
+WantedBy=default.target
 ```
 
 <Tip>
@@ -242,12 +242,15 @@ ls -lh /var/srv/songketmail/postfix/config/
 # All entries show: songketmail songketmail
 
 # Inspect running Quadlet units in the user session
-systemctl --user status songketmail-proxy
-systemctl --user status songketmail-dovecot
-systemctl --user status songketmail-db
+systemctl --user status songketmail_proxy.service
+systemctl --user status songketmail_dovecot.service
+systemctl --user status songketmail_db.service
 
 # Restart a single service without touching the others
-systemctl --user restart songketmail-rspamd
+systemctl --user restart songketmail_rspamd.service
+
+# Check the pod unit
+systemctl --user status songketmail_pod-pod.service
 ```
 
 <Note>

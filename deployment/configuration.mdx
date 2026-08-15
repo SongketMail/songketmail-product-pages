@@ -11,10 +11,6 @@ SongketMail is driven entirely by two configuration files: an Ansible inventory 
 The inventory file lives at `inventory/hosts.ini`. It defines the nodes that belong to the `email_servers` group, which is the target group for the main `site.yml` playbook.
 
 ```ini
-[all]
-jump_host ansible_host=127.0.0.1 ansible_connection=local
-localhost  ansible_connection=local
-
 [email_servers]
 node1.example.com ansible_host=10.0.1.11
 node2.example.com ansible_host=10.0.1.12
@@ -125,7 +121,7 @@ songketmail_services:
 
 The playbook creates a structured directory tree under `storage_base_path` (`/var/srv/songketmail` by default). Every directory is owned by `2001:2001` with mode `0700`, ensuring that only the `songketmail` user can access mail data on the host.
 
-```
+```text
 /var/srv/songketmail/
 ├── bunkerweb/data       # BunkerWeb WAF runtime data
 ├── nginx/conf           # Nginx configuration managed by BunkerWeb

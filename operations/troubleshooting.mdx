@@ -1,5 +1,5 @@
 ---
-title: "Troubleshooting Common SongketMail Issues"
+title: "Troubleshooting Common SongketMail Operational Issues"
 sidebarTitle: "Troubleshooting"
 description: "Diagnose and fix common SongketMail problems: services not starting, mail delivery failures, IMAP connection errors, and storage permission issues."
 ---
@@ -158,11 +158,7 @@ The output must read:
 UserNS=keep-id:uid=2001,gid=2001
 ```
 
-If this line is missing or the UID/GID values differ, re-run the deployment playbook to regenerate the Quadlet from the correct template:
-
-```bash
-ansible-playbook -i inventory/hosts.ini site.yml
-```
+If this line is missing or the UID/GID values differ, re-run the deployment playbook to regenerate the Quadlet from the correct template.
 
 **Verify** that the `songketmail` user exists with UID and GID `2001` on the host:
 
@@ -203,33 +199,6 @@ podman logs --tail 50 songketmail-web
 ```
 
 Look for `PDOException`, `SQLSTATE`, or `permission denied` messages. If Roundcube reports that the database file cannot be created, the fix is almost always the directory ownership correction above.
-</Accordion>
-
-<Accordion title="Deployment playbook fails with 'No module named podman'">
-**Cause:** The required Ansible collections are not installed in your Ansible environment. The SongketMail playbook uses `containers.podman` for Quadlet management and `community.postgresql` for database initialisation tasks. These are not included in a base Ansible installation.
-
-**Fix:** Install the required collections from Ansible Galaxy:
-
-```bash
-ansible-galaxy collection install containers.podman community.postgresql
-```
-
-If you are running Ansible inside a virtual environment or a CI pipeline, ensure the collection install step runs before the playbook execution. You can also pin collection versions in a `requirements.yml` file at the root of your Ansible project:
-
-```yaml
-# requirements.yml
-collections:
-  - name: containers.podman
-  - name: community.postgresql
-```
-
-Then install from the requirements file:
-
-```bash
-ansible-galaxy collection install -r requirements.yml
-```
-
-Re-run the playbook after the collections are installed successfully.
 </Accordion>
 
 <Accordion title="RustFS S3 not accessible">

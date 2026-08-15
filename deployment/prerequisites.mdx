@@ -18,14 +18,13 @@ SongketMail relies on Podman Quadlets, which are native systemd unit files gener
 
 ### Ansible Collections
 
-The playbook uses fully qualified collection names (FQCN) throughout. Install all four required collections on your control machine before proceeding:
+The playbook uses fully qualified collection names (FQCN) throughout. Install all three required collections on your control machine before proceeding:
 
 ```bash
 ansible-galaxy collection install \
   community.general \
   ansible.posix \
-  containers.podman \
-  community.postgresql
+  containers.podman
 ```
 
 | Collection | Purpose |
@@ -33,7 +32,6 @@ ansible-galaxy collection install \
 | `community.general` | `modprobe` for kernel module loading |
 | `ansible.posix` | `sysctl` for kernel parameter tuning |
 | `containers.podman` | Rootless Podman network management |
-| `community.postgresql` | PostgreSQL database provisioning |
 
 ## Host OS Requirements
 
@@ -55,7 +53,7 @@ SongketMail targets Linux distributions that ship with **systemd** and support r
 Every target node must be reachable from your Ansible control machine over SSH, and the following inbound ports must be open on the host firewall:
 
 | Port | Protocol | Service |
-|------|----------|---------|
+|------|----------|---------| 
 | 22 | TCP | SSH (Ansible control access) |
 | 25 | TCP | SMTP — Postfix MTA |
 | 80 | TCP | HTTP — BunkerWeb (redirect to HTTPS) |
@@ -115,8 +113,7 @@ Work through each step before running the deployment playbook.
     ansible-galaxy collection install \
       community.general \
       ansible.posix \
-      containers.podman \
-      community.postgresql
+      containers.podman
     ```
   </Step>
 

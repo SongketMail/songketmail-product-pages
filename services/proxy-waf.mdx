@@ -66,7 +66,7 @@ When BunkerWeb accepts a raw TCP mail connection and forwards it upstream, the b
 
 Enabling `proxy_protocol on;` instructs BunkerWeb to prepend a PROXY protocol header to each upstream TCP connection before the mail handshake begins. The header follows this format:
 
-```
+```text
 PROXY TCP4 203.0.113.50 10.89.1.1 43212 25
 ```
 
@@ -132,7 +132,7 @@ Environment=smtp.songketmail.internal_CUSTOM_CONF_SERVER_STREAM_proxy-protocol=p
 Environment=smtp.songketmail.internal_LISTEN_STREAM_PORT_1=587
 Environment=smtp.songketmail.internal_REVERSE_PROXY_HOST_1=songketmail-postfix:587
 Environment=smtp.songketmail.internal_CUSTOM_CONF_SERVER_STREAM_proxy-protocol_1=proxy_protocol on;
-# IMAP Stream (Port 993)
+# IMAP Stream (Port 143/993)
 Environment=imap.songketmail.internal_SERVER_TYPE=stream
 Environment=imap.songketmail.internal_USE_REVERSE_PROXY=yes
 Environment=imap.songketmail.internal_REVERSE_PROXY_HOST=songketmail-dovecot:993
@@ -150,5 +150,5 @@ WantedBy=default.target
 `UserNS=keep-id:uid=2001,gid=2001` maps the container process to the `songketmail` system account (UID/GID 2001) in the rootless user namespace, ensuring the data volume on the host is always owned by a non-root account.
 
 <Note>
-**Coexistence with DockPod / Traefik:** If your host also runs DockPod with Traefik enabled, you will hit a port 80/443 binding conflict. The recommended approach is to disable Traefik inside DockPod and let BunkerWeb serve as the exclusive edge proxy, forwarding requests to the DockPod web interface on `http://127.0.0.1:8080` and the MCP server on `http://127.0.0.1:8090`. If Traefik must remain active (for example, to wire CrowdSec or other services), position BunkerWeb at the edge and forward to Traefik on a non-conflicting loopback port such as `127.0.0.1:8081`, and configure Traefik's `forwardedHeaders.trustedIPs` to accept BunkerWeb's container IP.
+**Coexistence with an existing Traefik proxy:** If your host already runs Traefik on ports 80 and 443, you will encounter a binding conflict. The simplest resolution is to disable Traefik and let BunkerWeb serve as the exclusive edge proxy. If Traefik must remain active — for example, to integrate CrowdSec or route other services — position BunkerWeb at the edge on ports 80/443 and forward to Traefik on a non-conflicting loopback port such as `127.0.0.1:8081`. Configure Traefik's `forwardedHeaders.trustedIPs` to trust BunkerWeb's container IP so that client IP headers are preserved through the proxy chain.
 </Note>

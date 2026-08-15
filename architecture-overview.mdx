@@ -10,7 +10,7 @@ SongketMail arranges seven containerised services into a single, logically isola
 
 The diagram below traces the journey of a message — whether inbound SMTP from the internet, an IMAP fetch from a mail client, or a webmail session from a browser — from the public interface through the internal fabric to persistent storage.
 
-```
+```text
 [ Inbound HTTPS Webmail Traffic ]   [ Inbound SMTP / IMAP Mail Streams ]
                │                                       │
                ▼                                       ▼
@@ -43,17 +43,16 @@ The diagram below traces the journey of a message — whether inbound SMTP from 
 
 ## Network and Pod Isolation
 
-All components share a single Podman pod (`songketmail-pod`) and communicate over the virtual bridge network `songketmail-net` (subnet `10.89.0.0/16`, gateway `10.89.0.1`). The cluster-prefix convention — applied to the pod name, network name, and every container name — means you can safely run multiple independent fabrics (for example, staging and production) on the same hypervisor without risking port or network name collisions.
+All components communicate over the virtual bridge network `songketmail-net` (subnet `10.89.0.0/16`). A dedicated pod (`songketmail_pod`) is defined at the pod level to declare the shared `UserNS` mapping for the fabric. The cluster-prefix convention — applied to the pod name, network name, and every container name — means you can safely run multiple independent fabrics (for example, staging and production) on the same hypervisor without risking port or network name collisions.
 
 ```ini
 [Network]
 NetworkName=songketmail-net
 Subnet=10.89.0.0/16
-Gateway=10.89.0.1
 Internal=false
 ```
 
-The pod declares `UserNS=keep-id:uid=2001,gid=2001` once at the pod level, and all containers in the pod inherit it automatically. This ensures a consistent, predictable UID mapping across every service without repeating the directive in each individual `.container` file.
+The pod declares `UserNS=keep-id:uid=2001,gid=2001` once at the pod level. This ensures a consistent, predictable UID mapping across every service without repeating the directive in each individual `.container` file.
 
 <Note>
   Only `songketmail-proxy` binds host ports (80, 443, 25, 587, 993). All other services communicate exclusively over `songketmail-net` and are invisible to the host network interface. This is intentional — never expose internal service ports directly to the host on a production node.
@@ -77,7 +76,7 @@ The table below is the canonical reference for every container in the SongketMai
 
 All host-side persistence lives under a single, predictable root:
 
-```
+```text
 /var/srv/songketmail/
 ├── bunkerweb/data/          # BunkerWeb WAF runtime data
 ├── nginx/conf/              # NGINX upstream configuration
@@ -100,39 +99,5 @@ Every directory is created by the Ansible playbook and assigned `2001:2001` owne
 <Tip>
   To inspect or back up any service's data, log in as the `songketmail` user and navigate directly to `/var/srv/songketmail/{service}/`. You own every file there without needing elevated privileges.
 </Tip>
-
-## PostgreSQL Virtual Account Schema
-
-Dovecot and Postfix both query PostgreSQL to resolve virtual domains, authenticate users, and look up aliases. The schema below is the authoritative reference for the three tables that drive all virtual mail routing in SongketMail.
-
-```sql
--- Domain registry: each hosted mail domain has one row here
-CREATE TABLE virtual_domains (
-    id   SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE
-);
-
--- User accounts: Argon2id-hashed passwords, one row per mailbox
-CREATE TABLE users (
-    id        SERIAL PRIMARY KEY,
-    domain_id INT REFERENCES virtual_domains(id) ON DELETE CASCADE,
-    email     VARCHAR(100) NOT NULL UNIQUE,
-    password  VARCHAR(255) NOT NULL,
-    maildir   VARCHAR(255) NOT NULL,
-    active    BOOLEAN DEFAULT true
-);
-
--- Alias routing: maps a source address to a destination address
-CREATE TABLE virtual_aliases (
-    id          SERIAL PRIMARY KEY,
-    domain_id   INT REFERENCES virtual_domains(id) ON DELETE CASCADE,
-    source      VARCHAR(100) NOT NULL,
-    destination VARCHAR(100) NOT NULL
-);
-```
-
-<Note>
-  Passwords in the `users` table must be stored as Argon2id hashes. Dovecot's `auth-sql` driver verifies these hashes natively. Never store plaintext or MD5-hashed passwords in this table.
-</Note>
 
 To explore each service in depth — including its image version, internal ports, and storage layout — see the [Service Fabric reference](/service-fabric).

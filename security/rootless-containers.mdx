@@ -75,8 +75,8 @@ The fabric is composed of three Quadlet file types:
 
 | File | Type | Purpose |
 |---|---|---|
-| `skm_net.network` | Network | Defines the isolated internal container network |
-| `skm_pod.pod` | Pod | Groups all service containers and publishes mail ports |
+| `skm_fabric_net.network` | Network | Defines the isolated internal container network |
+| `skm_fabric_pod.pod` | Pod | Groups all service containers and publishes mail ports |
 | `songketmail_{service}.container` | Container | One file per service (postfix, dovecot, db, etc.) |
 
 ### Example: Pod Quadlet (`skm_fabric_pod.pod`)

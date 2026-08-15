@@ -7,7 +7,7 @@ description: "SongketMail runs the ASIMP hardening pipeline — Lynis, OpenSCAP 
 Before a single container starts, SongketMail's Ansible playbook runs the **Ansible System Integrity Management Platform (ASIMP)** against the host operating system. ASIMP is a structured hardening pipeline that audits the host with two independent security scanners, applies a layered set of OS-level remediations, and then re-audits to verify the improvements. This host preparation phase runs entirely before the Quadlet deployment phase, meaning your containers launch on a kernel and OS configuration that already meets CIS Level 2 requirements and Lynis hardening targets.
 
 <Warning>
-The global variable `is_limited_environment` is set to `true` by default in `group_vars/all.yml` to allow safe playbook testing inside unprivileged CI environments and sandboxes. On a real production host you **must** set `is_limited_environment: false`. Without this change, the playbook skips all kernel tuning, system user creation, subuid registration, linger configuration, and ASIMP hardening — leaving your host completely un-hardened before container deployment.
+The global variable `is_limited_environment` is set to `true` by default in `group_vars/all.yml` to allow safe playbook testing inside unprivileged test environments and sandboxes. On a real production host you **must** set `is_limited_environment: false`. Without this change, the playbook skips all kernel tuning, system user creation, subuid registration, linger configuration, and ASIMP hardening — leaving your host completely un-hardened before container deployment.
 </Warning>
 
 ## The Measure-Harden-Re-Measure Pipeline
@@ -34,7 +34,7 @@ ASIMP implements a deterministic three-phase cycle. Each phase has a defined ent
     - **Audit logging** — configures `auditd` rules for file access monitoring, privilege escalation events, and network socket operations.
   </Step>
   <Step title="Phase 3: Post-Hardening Audit (Re-Measure)">
-    After all remediations are applied, ASIMP re-runs the same OpenSCAP and Lynis scans used in Phase 1. The delta between the baseline and post-hardening scores is the quantified security improvement. The playbook surfaces both scores in the Ansible output so you have a documented audit trail in your CI/CD logs.
+    After all remediations are applied, ASIMP re-runs the same OpenSCAP and Lynis scans used in Phase 1. The delta between the baseline and post-hardening scores is the quantified security improvement. The playbook surfaces both scores in the Ansible output so you have a documented audit trail in your deployment run logs.
 
     <Tip>
     Re-run the audit playbook any time you make changes to the host OS, install new packages, or modify system configuration files. The audit tasks are safe to execute independently — they are read-only and produce no side effects on the running system:
@@ -68,7 +68,7 @@ The SongketMail playbook uses a symmetric privilege model that keeps OS-level op
 
 **Rootless tasks (`become_user: songketmail`)** cover all Quadlet deployment, systemd user session management, and container lifecycle operations. These tasks run as UID 2001 and explicitly set `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS` in their environment blocks so they bind correctly to the `songketmail` user session.
 
-The `is_limited_environment` flag acts as a safety gate. When `true`, the playbook skips every rootful task — including ASIMP — so the entire playbook can run safely inside a CI sandbox without requiring elevated privileges or risking system modification.
+The `is_limited_environment` flag acts as a safety gate. When `true`, the playbook skips every rootful task — including ASIMP — so the entire playbook can run safely inside an unprivileged test environment without requiring elevated privileges or risking system modification.
 
 ## Kernel Hardening Applied
 

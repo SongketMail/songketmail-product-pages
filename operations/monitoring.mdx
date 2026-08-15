@@ -1,5 +1,5 @@
 ---
-title: "Monitoring SongketMail Services and Mail Flow"
+title: "Monitoring SongketMail Health, Logs, and Mail Flow"
 sidebarTitle: "Monitoring"
 description: "Monitor SongketMail container health, view live logs, check Rspamd statistics, and inspect Postfix mail queues from the command line."
 ---
@@ -97,7 +97,7 @@ Rspamd provides a built-in web dashboard that gives you real-time statistics on 
 
 Access the dashboard in your browser at:
 
-```
+```text
 https://<your-domain>/rspamd/
 ```
 
@@ -111,9 +111,3 @@ The dashboard shows:
 <Note>
 The Rspamd web UI is protected by BunkerWeb's WAF rules. If you cannot reach the `/rspamd/` path, verify that BunkerWeb is running (`podman ps --filter name=songketmail-proxy`) and that the proxy routing rule for the Rspamd upstream is present in your BunkerWeb configuration.
 </Note>
-
-## DockPod Container Management (Optional)
-
-For teams who prefer a graphical interface over the command line, DockPod is a lightweight web UI for managing and monitoring Podman containers. It can be added to your SongketMail host as a companion service and provides a real-time view of container states, resource usage, and logs without requiring SSH access.
-
-See the [DockPod Integration](/reference/dockpod-integration) reference page for setup instructions and configuration details.

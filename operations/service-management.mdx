@@ -1,5 +1,5 @@
 ---
-title: "Managing SongketMail Services with systemd"
+title: "Managing SongketMail Services with systemd and podman"
 sidebarTitle: "Service Management"
 description: "Start, stop, restart, and inspect all SongketMail services using standard systemctl --user commands in the songketmail user session."
 ---
@@ -83,28 +83,3 @@ journalctl --user -n 50 -u songketmail_pod-pod.service
 # Show all journal entries since last boot
 journalctl --user -b -u songketmail_dovecot.service
 ```
-
-## Updating Container Images
-
-SongketMail pins all container images to explicit version tags defined in `group_vars/all.yml`. This prevents unintended automatic updates and keeps deployments reproducible. To update a specific service to a new image version, follow this process:
-
-**Step 1 — Pull the new image** on your target node as the `songketmail` user:
-
-```bash
-podman pull bunkerity/bunkerweb-all-in-one:1.6.14
-```
-
-**Step 2 — Update the image tag** in `group_vars/all.yml` in your Ansible repository:
-
-```yaml
-# group_vars/all.yml
-bunkerweb_image_tag: "1.6.14"
-```
-
-**Step 3 — Re-run the deployment playbook** to regenerate the Quadlet definition and restart the affected service:
-
-```bash
-ansible-playbook -i inventory/hosts.ini site.yml
-```
-
-The playbook will render the updated Quadlet template, reload the systemd daemon, and restart only the services whose definitions have changed. You do not need to stop the entire pod for a single-image update.

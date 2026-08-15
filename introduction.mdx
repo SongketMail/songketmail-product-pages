@@ -12,13 +12,13 @@ SongketMail's design is governed by three architectural pillars, collectively ca
 
 <CardGroup cols={3}>
   <Card title="Fabric Isolation" icon="shield-halved">
-    Every pod, network, and container is cluster-prefixed (e.g., `songketmail-net`, `songketmail-pod`). Multiple independent fabrics can co-exist on a single host or hypervisor without port collisions, network conflicts, or cross-contamination of internal TCP streams.
+    Every pod, network, and container is cluster-prefixed (e.g., `songketmail-net`, `songketmail_pod`). Multiple independent fabrics can co-exist on a single host or hypervisor without port collisions, network conflicts, or cross-contamination of internal TCP streams.
   </Card>
   <Card title="Quadlet Orchestration" icon="gear">
     Instead of docker-compose or ad-hoc run scripts, SongketMail uses **Podman 5 Quadlets** — declarative `.container`, `.pod`, and `.network` files that the systemd generator converts into native user-level systemd units. Services survive reboots and recover automatically, managed entirely through standard `systemctl --user` tooling.
   </Card>
   <Card title="Sovereign Storage" icon="hard-drive">
-    Volume mounts point to node-isolated host paths under `/var/srv/songketmail/{service}/data`, owned by UID/GID `2001:2001`. The `UserNS=keep-id:uid=2001,gid=2001` Quadlet directive maps container-internal UIDs directly to the host user's UID, so you can inspect, back up, and audit data directories without ever reaching for `sudo`.
+    Volume mounts point to host paths under `/var/srv/songketmail/`, owned by UID/GID `2001:2001`. The `UserNS=keep-id:uid=2001,gid=2001` Quadlet directive maps container-internal UIDs directly to the host user's UID, so you can inspect, back up, and audit data directories without ever reaching for `sudo`.
   </Card>
 </CardGroup>
 
@@ -47,7 +47,7 @@ SongketMail's design is governed by three architectural pillars, collectively ca
     Quadlet-generated systemd units respect `Restart=always`, `loginctl enable-linger`, and all standard systemd directives. There is no wrapper process sitting between your OS and your containers.
   </Card>
   <Card title="Horizontal Scalability" icon="server">
-    Node-isolated storage paths (`/var/srv/songketmail/{service}/{hostname}/data`) mean you can add nodes to `inventory/hosts.ini` and rerun the playbook to scale out without touching existing nodes.
+    Node-isolated storage paths under `/var/srv/songketmail/` mean you can add nodes to `inventory/hosts.ini` and rerun the playbook to scale out without touching existing nodes.
   </Card>
 </CardGroup>
 
