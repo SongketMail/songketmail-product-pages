@@ -1,4 +1,16 @@
-# Songketmail Docs Repo
+---
+okf_version: "0.1"
+type: "documentation"
+title: "SongketMail Documentation Sync Architecture & Workflow Guide"
+timestamp: "2026-08-22T20:45:00Z"
+topics:
+  - "mintlify"
+  - "docs-source"
+  - "github-actions"
+  - "sync-pipeline"
+---
+
+# SongketMail Docs Repo
 
 This repository (`songketmail/songketmail-product-pages`) is the **Mintlify docs deployment source** for [songketmail.mintlify.app](https://songketmail.mintlify.app).
 
@@ -40,89 +52,18 @@ https://songketmail.mintlify.app
 ### ⬜ To do (in app repo `SongketMail/songketmail`)
 
 1. **Create `docs-source/` folder** and copy the current contents of this repo into it (all `.mdx` files, `docs.json`, `logo/`, `favicon.svg`, etc.) as the starting point.
-2. **Add `scripts/sync_docs.py`:**
-   ```python
-   import os
-   import shutil
-   import subprocess
-   from pathlib import Path
-   SOURCE_DIR = Path("docs-source")
-   DOCS_REPO = "songketmail/songketmail-product-pages"
-   BRANCH = "main"
-   TOKEN = os.environ["DOCS_REPO_TOKEN"]
-   def run(cmd, cwd=None):
-       subprocess.run(cmd, cwd=cwd, check=True, shell=isinstance(cmd, str))
-   def main():
-       tmp = Path("/tmp/docs-repo")
-       if tmp.exists():
-           shutil.rmtree(tmp)
-       # Clone docs repo
-       url = f"https://x-access-token:{TOKEN}@github.com/{DOCS_REPO}.git"
-       run(["git", "clone", "--branch", BRANCH, url, str(tmp)])
-       # Wipe old docs content (keep .git)
-       for item in tmp.iterdir():
-           if item.name == ".git":
-               continue
-           if item.is_dir():
-               shutil.rmtree(item)
-           else:
-               item.unlink()
-       # Copy new content
-       shutil.copytree(SOURCE_DIR, tmp, dirs_exist_ok=True)
-       # Commit and push
-       run(["git", "config", "user.email", "bot@songketmail.com"], cwd=tmp)
-       run(["git", "config", "user.name", "Docs Sync Bot"], cwd=tmp)
-       run(["git", "add", "-A"], cwd=tmp)
-       result = subprocess.run(["git", "diff", "--staged", "--quiet"], cwd=tmp)
-       if result.returncode == 0:
-           print("No changes")
-           return
-       run(["git", "commit", "-m", "Sync docs from app repo"], cwd=tmp)
-       run(["git", "push", "origin", BRANCH], cwd=tmp)
-       print("Synced")
-   if __name__ == "__main__":
-       main()
-   ```
-3. **Add `.github/workflows/sync-docs.yml`:**
-   ```yaml
-   name: Sync Docs
-   on:
-     push:
-       branches: [main]
-       paths:
-         - "docs-source/**"
-   jobs:
-     sync:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: actions/setup-python@v5
-           with:
-             python-version: "3.11"
-         - name: Sync docs
-           env:
-             DOCS_REPO_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
-           run: python scripts/sync_docs.py
-   ```
+2. **Add `scripts/sync_docs.py`** with safety guards (Guard A–E, deletion cap, and navigation integrity checks).
+3. **Add `.github/workflows/sync-docs.yml`** with `workflow_dispatch` inputs.
 4. **Create a fine-grained Personal Access Token:**
    - Go to [https://github.com/settings/tokens](https://github.com/settings/tokens) → **Fine-grained tokens** → **Generate new token**
    - Repository access: `songketmail/songketmail-product-pages`
    - Permissions: **Contents: Read and write**
-   - Copy the token
-5. **Add token as a secret in the app repo:**
-   - `SongketMail/songketmail` → **Settings → Secrets and variables → Actions → New repository secret**
-   - Name: `DOCS_REPO_TOKEN`
-   - Value: paste token
-6. **Test the pipeline:**
-   - Make a small edit to a file under `docs-source/` in the app repo
-   - Commit and push to `main`
-   - Watch the workflow run in **Actions** tab
-   - Confirm this repo receives the sync commit
-   - Confirm [https://songketmail.mintlify.app](https://songketmail.mintlify.app) rebuilds
+5. **Add token as a secret in the app repo:** `DOCS_REPO_TOKEN`
+6. **Test the pipeline:** Run `python3 scripts/sync_docs.py --dry-run` and confirm validation passes.
 
 ## Rules
 
-- ❌ Do NOT edit files in this repo (`songketmail-product-pages`) directly
+- ❌ Do NOT edit files in `songketmail-product-pages` directly
 - ❌ Do NOT edit in the Mintlify web editor (changes will be overwritten)
 - ✅ Only edit `docs-source/` in `SongketMail/songketmail`
 - ✅ Push to `main` → auto-sync → Mintlify rebuild
@@ -139,13 +80,13 @@ Preview at [http://localhost:3000](http://localhost:3000).
 
 ## How AI agents work with this setup
 
-Any AI coding agent (Claude Code, Cursor, Copilot, etc.) should work against the **app repo only**:
+Any AI coding agent (Claude Code, Cursor, Copilot, Jules, etc.) should work against the **app repo only**:
 
 1. Clone `SongketMail/songketmail`
 2. Read `docs-source/` to understand current docs structure
-3. Edit files under `docs-source/` only — never touch this repo (`songketmail-product-pages`) directly
+3. Edit files under `docs-source/` only — never touch `songketmail-product-pages` directly
 4. Commit and push to `main` on the app repo
-5. GitHub Actions auto-syncs `docs-source/` → this repo → Mintlify rebuilds
+5. GitHub Actions auto-syncs `docs-source/` → `songketmail-product-pages` → Mintlify rebuilds
 
 ### Prompt to give an AI agent for docs tasks
 
@@ -158,7 +99,7 @@ changes to the Mintlify deployment automatically.
 
 ## Incident: unsafe sync wiped pages (2026-08-22)
 
-**What happened:** The first version of the sync pipeline had no safety guards. When `docs-source/` in the app repo was empty or partially populated, the workflow mirrored that empty state into this docs repo, deleting most `.mdx` files and emptying navigation in `docs.json`.
+**What happened:** The first version of the sync pipeline had no safety guards. When `docs-source/` in the app repo was empty or partially populated, the workflow mirrored that empty state into the docs repo, deleting most `.mdx` files and emptying navigation in `docs.json`.
 
 **Lesson:** A naive "wipe target, copy source" script will happily destroy the downstream repo if the source is not complete. The pipeline below (v2) adds mandatory safety guards.
 
@@ -176,7 +117,7 @@ Then fix `docs-source/` in the app repo and re-run the sync in dry-run mode befo
 
 ## Reusable prompt for other projects (v2, hardened)
 
-To set up the same pipeline for another Mintlify project WITHOUT the failure mode above, give this prompt to an AI coding agent (Claude Code, Cursor, etc.):
+To set up the same pipeline for another Mintlify project WITHOUT the failure mode above, give this prompt to an AI coding agent:
 
 ```text
 Set up a one-way docs sync pipeline between two GitHub repos with strict safety guards
@@ -273,7 +214,7 @@ DELIVERABLES
    - State clearly: this repo is auto-synced from <APP_REPO>/docs-source/, do not
      edit here, do not edit in the Mintlify web editor.
    - Link to the app repo.
-   - Include the recovery procedure (see item 7).
+   - Include the recovery procedure.
 
 6. AI agent instructions (add to app repo AGENTS.md or CONTRIBUTING.md):
    - Docs live in docs-source/ in this repo.
@@ -295,29 +236,13 @@ DELIVERABLES
    - Then fix docs-source/ in the app repo and re-run the sync in dry-run mode
      before pushing.
 
-MANUAL STEPS FOR THE USER (list these at the end of your work)
+MANUAL STEPS FOR THE USER
 
-- Create a fine-grained Personal Access Token:
-    - Repo access: <OWNER>/<DOCS_REPO> only
-    - Permissions: Contents: Read and write
+- Create a fine-grained Personal Access Token (Read/Write Contents for docs repo).
 - Add it as repository secret DOCS_REPO_TOKEN in the app repo.
 - Run the workflow manually with dry_run=true first, confirm the plan.
 - Then run with dry_run=false to perform the first real sync.
 - Enable branch protection on the docs repo main.
-
-CONSTRAINTS
-
-- One-way sync only. Do NOT build two-way sync.
-- Use fine-grained PAT, not classic tokens.
-- Never force-push. Never disable guards to "make it work".
-- If a guard fails, the correct answer is to fix docs-source/, not to bypass
-  the guard. The guards exist to prevent destruction.
-- Do not push to the docs repo until the user has approved a dry-run.
-
-PLACEHOLDERS TO REPLACE
-- <OWNER>/<APP_REPO>
-- <OWNER>/<DOCS_REPO>
-- <SUBDOMAIN>
 ```
 
 ### Placeholders to swap per project
@@ -337,12 +262,6 @@ PLACEHOLDERS TO REPLACE
 | C: Navigation integrity | Broken links, empty groups, missing pages after sync |
 | D: Deletion cap | Mass-delete accidents (the failure mode we already hit) |
 | E: Dry-run | Anyone can preview a sync before it destroys anything |
-
-### Tips
-
-- If the docs live in a subfolder of the docs repo (not root), tell the agent: "docs repo content directory is `docs/`, not root."
-- If you use a branch other than `main`, specify it in the prompt.
-- Two-way sync (edit either place) is not recommended, merge conflicts get ugly.
 
 ## Resources
 
