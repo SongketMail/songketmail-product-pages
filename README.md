@@ -137,6 +137,88 @@ mint dev
 
 Preview at [http://localhost:3000](http://localhost:3000).
 
+## How AI agents work with this setup
+
+Any AI coding agent (Claude Code, Cursor, Copilot, etc.) should work against the **app repo only**:
+
+1. Clone `SongketMail/songketmail`
+2. Read `docs-source/` to understand current docs structure
+3. Edit files under `docs-source/` only — never touch this repo (`songketmail-product-pages`) directly
+4. Commit and push to `main` on the app repo
+5. GitHub Actions auto-syncs `docs-source/` → this repo → Mintlify rebuilds
+
+### Prompt to give an AI agent for docs tasks
+
+```text
+The docs for this project live in `docs-source/` in this repo.
+Edit files there only. Do not touch any other docs repo.
+When done, commit and push to main — a GitHub Actions workflow syncs
+changes to the Mintlify deployment automatically.
+```
+
+## Reusable prompt for other projects
+
+To set up the same pipeline for another Mintlify project, give this prompt to an AI coding agent (Claude Code, Cursor, etc.):
+
+```text
+I have two GitHub repos:
+- App repo: <OWNER>/<APP_REPO> (where I write code and want to also edit docs)
+- Docs repo: <OWNER>/<DOCS_REPO> (connected to Mintlify, auto-deploys to <SUBDOMAIN>.mintlify.app)
+
+I want a one-way sync pipeline: when I push changes to `docs-source/` in the app repo,
+a GitHub Actions workflow should copy those files into the docs repo's root on `main`,
+so Mintlify rebuilds automatically.
+
+Please do the following:
+
+1. In the app repo, create `docs-source/` and copy the current contents of the docs
+   repo into it as the starting point (all .mdx files, docs.json, images, logo, favicon).
+
+2. Create `scripts/sync_docs.py` in the app repo that:
+   - Clones the docs repo using a token from env var DOCS_REPO_TOKEN
+   - Wipes existing content (keeping .git)
+   - Copies everything from `docs-source/` into the clone
+   - Commits with message "Sync docs from app repo" and pushes to main
+   - Exits cleanly if there are no changes
+
+3. Create `.github/workflows/sync-docs.yml` in the app repo that:
+   - Triggers on push to `main` when files under `docs-source/**` change
+   - Runs on ubuntu-latest with Python 3.11
+   - Runs the sync script with DOCS_REPO_TOKEN from repository secrets
+
+4. Update the docs repo's README.md to explain:
+   - This repo is auto-synced and should NOT be edited directly
+   - Where to edit docs (app repo, docs-source/ folder)
+   - The full setup checklist (script, workflow, token, secret)
+   - Include the sync_docs.py and workflow YAML inline for reference
+   - Rules: don't edit docs repo directly, don't edit in Mintlify editor
+
+5. Tell me the manual steps I still need to do:
+   - Create a fine-grained GitHub Personal Access Token scoped to the docs repo
+     with Contents: Read and write
+   - Add it as secret `DOCS_REPO_TOKEN` in the app repo
+   - Test the pipeline with a small edit
+
+Constraints:
+- Do NOT edit the docs repo directly (only via the sync pipeline once set up)
+- Use fine-grained PAT, not classic tokens
+- Sync should be idempotent (safe to re-run)
+```
+
+### Placeholders to swap per project
+
+| Placeholder | Example |
+| --- | --- |
+| `<OWNER>/<APP_REPO>` | `SongketMail/songketmail` |
+| `<OWNER>/<DOCS_REPO>` | `songketmail/songketmail-product-pages` |
+| `<SUBDOMAIN>` | `songketmail` |
+
+### Tips
+
+- If the docs live in a subfolder of the docs repo (not root), tell the agent: "docs repo content directory is `docs/`, not root."
+- If you use a branch other than `main`, specify it in the prompt.
+- Two-way sync (edit either place) is not recommended — merge conflicts get ugly.
+
 ## Resources
 
 - [Mintlify documentation](https://mintlify.com/docs)
